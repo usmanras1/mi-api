@@ -98,3 +98,14 @@ def delete_task(task_id: int):
     if not deleted:
         raise HTTPException(status_code=404, detail="Task not found")
     return {"message": "Task deleted"}
+
+
+@app.get("/test-env")
+def test_env():
+    import os
+    db_url = os.environ.get("DATABASE_URL")
+    secret = os.environ.get("SECRET_KEY")
+    return {
+        "database_url_detected": bool(db_url),
+        "secret_key_detected": bool(secret)
+    }
