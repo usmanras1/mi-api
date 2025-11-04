@@ -15,7 +15,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = os.environ.get("postgresql://todo_sql_rrht_user:wgfeg0AJGVql1HUaQGyMX95tbFGAOlwr@dpg-d3vp6dpr0fns738740ug-a.frankfurt-postgres.render.com/todo_sql_rrht")
+DATABASE_URL = os.environ.get("DATABASE_URL")
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 def get_connection():
     return psycopg2.connect(DATABASE_URL)
