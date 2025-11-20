@@ -100,12 +100,80 @@ def delete_task(task_id: int):
     return {"message": "Task deleted"}
 
 
-@app.get("/test-env")
-def test_env():
-    import os
-    db_url = os.environ.get("DATABASE_URL")
-    secret = os.environ.get("SECRET_KEY")
-    return {
-        "database_url_detected": bool(db_url),
-        "secret_key_detected": bool(secret)
-    }
+# Modelo Pydantic para listas de tareas
+class ListTask(BaseModel):
+    id: Optional[int] = Field(default=None, alias="list_id")
+    name: str
+
+    class Config:
+        allow_population_by_field_name = True
+
+# Crear una lista de tareas
+@app.post("/lists", response_model=ListTask)
+def create_list(list_task: ListTask):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO list_task_ (name) VALUES (%s) RETURNING list_id;",
+        (list_task.name,)
+    )
+    list_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"id": list_id, "name": list_task.name}
+
+# Listar todas las listas
+@app.get("/lists", response_model=List[ListTask])
+def get_lists():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT list_id, name FROM list_task_;")
+    lists = [{"id": l[0], "name": l[1]} for l in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return lists
+
+# Obtener una lista por id
+@app.get("/lists/{list_id}", response_model=ListTask)
+def get_list(list_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT list_id, name FROM list_task_ WHERE list_id=%s;", (list_id  ,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="List not found")
+    return {"id": row[0], "name": row[1]}
+
+# Actualizar una lista
+@app.put("/lists/{list_id}", response_model=ListTask)
+def update_list(list_id: int, list_task: ListTask):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE list_task_ SET name=%s WHERE list_id=%s RETURNING list_id;",
+        (list_task.name, list_id)
+    )
+    updated = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+    if not updated:
+        raise HTTPException(status_code=404, detail="List not found")
+    return {"id": list_id, "name": list_task.name}
+
+# Eliminar una lista
+@app.delete("/lists/{list_id}")
+def delete_list(list_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM list_task_ WHERE list_id=%s RETURNING list_id;", (list_id,))
+    deleted = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="List not found")
+    return {"message": "List deleted"}
