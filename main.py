@@ -177,3 +177,80 @@ def delete_list(list_id: int):
     if not deleted:
         raise HTTPException(status_code=404, detail="List not found")
     return {"message": "List deleted"}
+
+# Model Pydantic
+class User(BaseModel):
+    id: Optional[int] = Field(default=None, alias="user_id")
+    name: str
+    class Config:
+        allow_population_by_field_name = True
+
+# Crear usuari
+@app.post("/users", response_model=User)
+def create_user(user: User):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO users (name) VALUES (%s) RETURNING user_id;",
+        (user.name,)
+    )
+    user_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"id": user_id, "name": user.name}
+
+# Llistar tots els usuaris
+@app.get("/users", response_model=List[User])
+def get_users():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id, name FROM users;")
+    users = [{"id": u[0], "name": u[1]} for u in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return users
+
+# Obtenir usuari per id
+@app.get("/users/{user_id}", response_model=User)
+def get_user(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id, name FROM users WHERE user_id=%s;", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Usuari no trobat")
+    return {"id": row[0], "name": row[1]}
+
+# Actualitzar usuari
+@app.put("/users/{user_id}", response_model=User)
+def update_user(user_id: int, user: User):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE users SET name=%s WHERE user_id=%s RETURNING user_id;",
+        (user.name, user_id)
+    )
+    updated = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+    if not updated:
+        raise HTTPException(status_code=404, detail="Usuari no trobat")
+    return {"id": user_id, "name": user.name}
+
+# Eliminar usuari
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM users WHERE user_id=%s RETURNING user_id;", (user_id,))
+    deleted = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Usuari no trobat")
+    return {"message": "Usuari eliminat correctament"}
